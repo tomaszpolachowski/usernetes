@@ -41,16 +41,19 @@ cri="crio"
 cni="flannel"
 db="etcd"
 publish=""
-publish_default="0.0.0.0:6443:6443/tcp"
+publish_default="0.0.0.0:6443:6443/tcp 0.0.0.0:51820:51820/udp 0.0.0.0:51821:51821/udp 0.0.0.0:10250:10250/tcp"
 #cidr="10.0.42.0/24"
 delay=""
 wait_init_certs=""
+install_only=""
 function usage() {
 	echo "Usage: ${arg0} [OPTION]..."
 	echo "Install Usernetes systemd units to ${config_dir}/systemd/unit ."
 	echo
 #	echo "  --cri=RUNTIME       Specify CRI runtime, \"crio\" or \"containerd\". (Default: \"$cri\")"
 #	echo "  --cni=RUNTIME       Specify CNI, an empty string (none) or \"flannel\". (Default: \"$cni\")"
+    echo "  --wait-init-certs   Wait for initial certificates to be available before continuing installation."
+	echo "  --install-only      Only install systemd units without starting them and without applying any configurations."
 	echo "  -p, --publish=PORT  Publish ports in RootlessKit's network namespace, e.g. \"0.0.0.0:10250:10250/tcp\". Can be specified multiple times. (Default: \"${publish_default}\")"
 #	echo "  --cidr=CIDR         Specify CIDR of RootlessKit's network namespace, e.g. \"10.0.100.0/24\". (Default: \"$cidr\")"
 	echo
@@ -66,7 +69,7 @@ function usage() {
 
 set +e
 #args=$(getopt -o hp: --long help,publish:,cri:,cni:,cidr:,,delay:,wait-init-certs -n $arg0 -- "$@")
-args=$(getopt -o hp: --long help,publish:,cri:,cni:,db:,,delay:,wait-init-certs -n $arg0 -- "$@")
+args=$(getopt -o hp: --long help,publish:,cri:,cni:,db:,,delay:,wait-init-certs,install-only -n $arg0 -- "$@")
 getopt_status=$?
 set -e
 if [ $getopt_status != 0 ]; then
@@ -131,8 +134,11 @@ while true; do
 		shift 2
 		;;
 	--wait-init-certs)
-		# HIDDEN FLAG FOR DOCKER COMPOSE. DO NO SPECIFY MANUALLY.
 		wait_init_certs=1
+		shift 1
+		;;
+	--install-only)
+		install_only=1
 		shift 1
 		;;
 	--)
@@ -150,43 +156,45 @@ if [[ -z "$publish" ]]; then
 	publish=$publish_default
 fi
 
-# check cgroup config
-if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
-	ERROR "Needs cgroup v2, see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
-	exit 1
-else
-	f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
-	if [[ ! -f $f ]]; then
-		ERROR "systemd not running? file not found: $f"
+if [[ -z "$install_only" ]]; then
+	# check cgroup config
+	if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
+		ERROR "Needs cgroup v2, see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
 		exit 1
-	fi
-	if ! grep -q cpu $f; then
-		WARNING "cpu controller might not be enabled, you need to configure /etc/systemd/system/user@.service.d , see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
-	elif ! grep -q memory $f; then
-		WARNING "memory controller might not be enabled, you need to configure /etc/systemd/system/user@.service.d , see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
 	else
-		INFO "Rootless cgroup (v2) is supported"
+		f="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
+		if [[ ! -f $f ]]; then
+			ERROR "systemd not running? file not found: $f"
+			exit 1
+		fi
+		if ! grep -q cpu $f; then
+			WARNING "cpu controller might not be enabled, you need to configure /etc/systemd/system/user@.service.d , see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
+		elif ! grep -q memory $f; then
+			WARNING "memory controller might not be enabled, you need to configure /etc/systemd/system/user@.service.d , see https://rootlesscontaine.rs/getting-started/common/cgroup2/"
+		else
+			INFO "Rootless cgroup (v2) is supported"
+		fi
 	fi
-fi
 
-# check kernel modules
-for f in $(cat ${base}/config/modules-load.d/u7s.conf); do
-	if grep -qw "^$f" /proc/modules; then
-		INFO "Kernel module $f is loaded"
-	elif grep -qw "${f}.ko$" /lib/modules/$(uname -r)/modules.builtin; then
-		INFO "Kernel is built with $f"
-	else
-		ERROR "Kernel module $f is not loaded"
-		exit 1
-	fi
-done
+	# check kernel modules
+	for f in $(cat ${base}/config/modules-load.d/u7s.conf); do
+		if grep -qw "^$f" /proc/modules; then
+			INFO "Kernel module $f is loaded"
+		elif grep -qw "${f}.ko$" /lib/modules/$(uname -r)/modules.builtin; then
+			INFO "Kernel is built with $f"
+		else
+			ERROR "Kernel module $f is not loaded"
+			exit 1
+		fi
+	done
+fi
 
 if [[ -z "$(which uuidgen)" ]]; then
 	ERROR "uuid-runtime is not installed"
 	exit 1
 fi
 if [[ -z "$(which newuidmap)" ]] || [[ -z "$(which newgidmap)" ]]; then
-	ERROR "uid-map is not installed"
+	ERROR "uidmap is not installed"
 	exit 1
 fi
 if [[ -z "$(which conntrack)" ]]; then
@@ -217,40 +225,41 @@ fi
 # U7S_ROOTLESSKIT_FLAGS=--cidr=${cidr}
 # EOF
 # fi
-U7S_ROOTLESSKIT_FLAGS=
+# U7S_ROOTLESSKIT_FLAGS=
+if [[ -z "$install_only" ]]; then
+	if [[ -n "$wait_init_certs" ]]; then
+		max_trial=300
+		INFO "Waiting for certs to be created.":
+		for ((i = 0; i < max_trial; i++)); do
+			if [[ -f ${config_dir}/usernetes/master/done ]]; then
+				echo "OK"
+				break
+			fi
+			echo -n .
+			sleep 5
+		done
+	elif [[ ! -d ${config_dir}/usernetes/master ]]; then
+		### If the keys are not generated yet, generate them for the single-node cluster
+		INFO "Generating single-node cluster TLS keys (${config_dir}/usernetes/{master,node})"
+		cfssldir=$(mktemp -d /tmp/cfssl.XXXXXXXXX)
+		ip=$(hostname -I | cut -d' ' -f1)
+		hostname=$(hostname -s)
+		${base}/common/cfssl.sh --dir=${cfssldir} --master=$hostname --node=$hostname,$ip
+		rm -rf ${config_dir}/usernetes/{master,node}
+		cp -r "${cfssldir}/master" ${config_dir}/usernetes/master
+		cp -r "${cfssldir}/nodes.$hostname" ${config_dir}/usernetes/node
+		rm -rf "${cfssldir}"
+	fi
 
-if [[ -n "$wait_init_certs" ]]; then
-	max_trial=300
-	INFO "Waiting for certs to be created.":
-	for ((i = 0; i < max_trial; i++)); do
-		if [[ -f ${config_dir}/usernetes/master/done ]]; then
-			echo "OK"
-			break
-		fi
-		echo -n .
-		sleep 5
-	done
-elif [[ ! -d ${config_dir}/usernetes/master ]]; then
-	### If the keys are not generated yet, generate them for the single-node cluster
-	INFO "Generating single-node cluster TLS keys (${config_dir}/usernetes/{master,node})"
-	cfssldir=$(mktemp -d /tmp/cfssl.XXXXXXXXX)
-	ip=$(hostname -I | cut -d' ' -f1)
-	hostname=$(hostname -s)
-	${base}/common/cfssl.sh --dir=${cfssldir} --master=$hostname --node=$hostname,$ip
-	rm -rf ${config_dir}/usernetes/{master,node}
-	cp -r "${cfssldir}/master" ${config_dir}/usernetes/master
-	cp -r "${cfssldir}/nodes.$node" ${config_dir}/usernetes/node
-	rm -rf "${cfssldir}"
-fi
-
-# Configure backend db cluster for kubernetes
-mkdir -p "${config_dir}/usernetes/etcd"
-# Create env file with initial parameters for etcd cluster
-cat <<EOF >>${config_dir}/usernetes/etcd/env
+	# Configure backend db cluster for kubernetes
+	mkdir -p "${config_dir}/usernetes/etcd"
+	# Create env file with initial parameters for etcd cluster
+	cat <<EOF >>${config_dir}/usernetes/etcd/env
 ETCD_INITIAL_CLUSTER="$(while read n; do awk -F',' '{print $1"=https://"$2":2380";}' <<< "$n"; done <"${config_dir}/usernetes/master/nodes" | tr '\n' ',' | sed -e 's/,*$//g')"
 ETCD_INITIAL_CLUSTER_TOKEN="$(<"${config_dir}/usernetes/master/token")"
 ETCD_INITIAL_CLUSTER_STATE=new
 EOF
+fi
 
 ### Begin installation
 INFO "Base dir: ${base}"
@@ -317,7 +326,6 @@ ExecStart=${base}/boot/${db}.sh
 ${service_common}
 EnvironmentFile=${config_dir}/usernetes/etcd/env
 EOF
-fi
 
 ### master
 cat <<EOF | x u7s-master.target
@@ -454,47 +462,54 @@ EOF
 	fi
 fi
 
-### Finish installation
-INFO "Enabling u7s.target"
-set -x
-systemctl --user -T enable u7s.target
-set +x
-INFO "Starting u7s-master.target"
-set -x
-time systemctl --user start -T u7s-master.target
-set +x
+mkdir -p "${config_dir}/systemd/user/default.target.wants"
+ln -s "${config_dir}/systemd/user/u7s.target" "${config_dir}/systemd/user/default.target.wants/u7s.target"
 
-PATH="${base}/bin:$PATH"
-KUBECONFIG="${config_dir}/usernetes/master/admin.kubeconfig"
-export PATH KUBECONFIG
+if [[ -z "$install_only" ]]; then
+	### Finish installation
+	INFO "Enabling u7s.target"
+	set -x
+	systemctl --user -T enable u7s.target
+	set +x
+	INFO "Starting u7s-master.target"
+	set -x
+	time systemctl --user start -T u7s-master.target
+	set +x
 
-INFO "Setting up ClusterRole and ClusterRoleBinding for 'system:kube-subnet-mgr' (flannel)"
-set -x
-kubectl apply -f ${base}/manifests/kube-subnet-mgr.yaml
-set +x
+	PATH="${base}/bin:$PATH"
+	KUBECONFIG="${config_dir}/usernetes/master/admin.kubeconfig"
+	export PATH KUBECONFIG
 
-INFO "Setting up ClusterRole and ClusterRoleBinding for 'system:kube-network-policies' (netpol)"
-set -x
-kubectl apply -f ${base}/manifests/kube-network-policies.yaml
-set +x
+	INFO "Setting up ClusterRole and ClusterRoleBinding for 'system:kube-subnet-mgr' (flannel)"
+	set -x
+	kubectl apply -f ${base}/manifests/kube-subnet-mgr.yaml
+	set +x
 
-INFO "Setting up ClusterRoleBinding between user 'kubernetes' and cluster role 'system:kubelet-api-admin'"
-set -x
-kubectl apply -f ${base}/manifests/apiserver-kubelet-admin.yaml
-set +x
+	INFO "Setting up ClusterRole and ClusterRoleBinding for 'system:kube-network-policies' (netpol)"
+	set -x
+	kubectl apply -f ${base}/manifests/kube-network-policies.yaml
+	set +x
 
-INFO "Installing CoreDNS"
-set -x
-kubectl apply -f ${base}/manifests/coredns.yaml
-set +x
+	INFO "Setting up ClusterRoleBinding between user 'kubernetes' and cluster role 'system:kubelet-api-admin'"
+	set -x
+	kubectl apply -f ${base}/manifests/apiserver-kubelet-admin.yaml
+	set +x
 
-INFO "Starting u7s.target"
-set -x
-time systemctl --user start -T u7s.target
-set +x
+	INFO "Installing CoreDNS"
+	set -x
+	kubectl apply -f ${base}/manifests/coredns.yaml
+	set +x
 
-INFO "Installation complete."
-INFO 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
-if [[ -n "${KUBECONFIG}" ]]; then
-	INFO "Hint: export KUBECONFIG=${KUBECONFIG}"
+	INFO "Starting u7s.target"
+	set -x
+	time systemctl --user start -T u7s.target
+	set +x
+
+	INFO "Installation completed."
+	INFO 'Hint: `sudo loginctl enable-linger` to start user services automatically on the system start up.'
+	if [[ -n "${KUBECONFIG}" ]]; then
+		INFO "Hint: export KUBECONFIG=${KUBECONFIG}"
+	fi
+else
+	INFO "Installation completed."
 fi

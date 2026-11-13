@@ -24,8 +24,8 @@ ARG WG_TOOLS_RELEASE=v1.0.20260223
 ARG CRI_TOOLS_RELEASE=v1.37.0
 
 ARG ALPINE_RELEASE=3.24
-ARG GO_RELEASE=1.27.3
-ARG UBUNTU_RELEASE=resolute
+ARG GO_RELEASE=1.27.4
+ARG UBUNTU_RELEASE=26.04
 
 ### Common base images (common-*)
 FROM docker.io/alpine:${ALPINE_RELEASE} AS common-alpine
@@ -185,23 +185,50 @@ COPY --from=etcd-build /out/* /
 COPY --from=cfssl-build /out/* /
 
 #### Test (test-main)
-FROM docker.io/ubuntu:${UBUNTU_RELEASE} AS test-main
-ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
+# FROM quay.io/flysangel/jrei/systemd-ubuntu:${UBUNTU_RELEASE} AS test-main
+FROM docker.io/library/ubuntu:${UBUNTU_RELEASE}
+
+ENV LC_ALL=C
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y systemd systemd-sysv \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN cd /lib/systemd/system/sysinit.target.wants/ \
+    && rm $(ls | grep -v systemd-tmpfiles-setup)
+
+RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/basic.target.wants/* \
+    /lib/systemd/system/anaconda.target.wants/* \
+    /lib/systemd/system/plymouth* \
+    /lib/systemd/system/systemd-update-utmp*
+
 COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
-RUN chmod +x /docker-entrypoint.sh && \
-  apt-get update -y && \
+RUN apt-get update -y && \
   apt-get install -q -y conntrack fuse3 git iptables nftables time which \
-  systemd-container && \
+  systemd-container \
+  curl iproute2 net-tools jq lxc uuid-runtime && \
   userdel ubuntu && \
-  useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
-  mkdir -p /home/user/.local /home/user/.config/usernetes && \
-  chown -R user:user /home/user && \
-  rm -rf /tmp/*
-COPY --chown=user:user . /home/user/usernetes
-COPY --from=bin-main --chown=user:user / /home/user/usernetes/bin
-RUN ln -sf /home/user/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo
-VOLUME /home/user/.local
-VOLUME /home/user/.config
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-  CMD ["unsudo", "systemctl", "--user", "is-system-running"]
-ENTRYPOINT ["/docker-entrypoint.sh", "unsudo", "/home/user/usernetes/boot/docker-2ndboot.sh"]
+  useradd -m -d /opt/usernetes -u 1000 -G systemd-journal -c Usernetes -s /bin/bash usernetes && \
+  install -d -m 755 -o usernetes -g usernetes /opt/usernetes/.local /opt/usernetes/.config /opt/usernetes/.config/usernetes && \
+  rm -rf /tmp/* && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
+COPY --chown=usernetes:usernetes . /opt/usernetes
+COPY --from=bin-main --chown=usernetes:usernetes / /opt/usernetes/bin
+RUN ln -sf /opt/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo && \
+  mkdir -p /var/lib/systemd/linger && \
+  touch /var/lib/systemd/linger/usernetes && \
+  su -c "/opt/usernetes/install.sh --install-only" - usernetes
+# VOLUME /opt/usernetes/.local
+# VOLUME /opt/usernetes/.config
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+#   CMD ["unsudo", "systemctl", "--user", "is-system-running"]
+ENTRYPOINT ["/lib/systemd/systemd"]
+CMD ["--system", "--unit=multi-user.target"]

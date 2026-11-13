@@ -2,84 +2,103 @@ version: "3"
 
 services:
   init-certs:
-    image: ghcr.io/rootless-containers/usernetes
-    entrypoint: /docker-entrypoint.sh
+    image: ghcr.io/tomaszpolachowski/usernetes
+    entrypoint: /bin/bash
+    environment:
+      XDG_RUNTIME_DIR: '/opt/usernetes/run'
+    user: usernetes
     command:
-      - unsudo
-      - /home/user/usernetes/common/cfssl.sh
-      - --dir=/home/user/.config/usernetes
-      - --master=master
-      - --node=node-1
-      - --node=node-2
+      - -c
+      - /usr/bin/mkdir -p /opt/usernetes/run && mkdir -p /opt/usernetes/run && /opt/usernetes/common/cfssl.sh --dir=/opt/usernetes/.config/usernetes --master=master --node=master --node=node-1 --node=node-2 && /bin/ls -laR /opt/usernetes/run && /usr/bin/sleep infinity
     privileged: true
     tty: true
     hostname: master
     volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - tmp:/tmp
+      - run:/run
+      - runlock:/run/lock
       - tls-master:/home/user/.config/usernetes/master
       - tls-node-1:/home/user/.config/usernetes/nodes.node-1
       - tls-node-2:/home/user/.config/usernetes/nodes.node-2
-  master:
-    image: ghcr.io/rootless-containers/usernetes
-    command:
-      - --wait-init-certs
-      - --start=u7s-master-with-etcd.target
-      - --cidr=10.0.100.0/24
-# 2379/tcp: etcd, 6443/tcp: kube-apiserver
-      - --publish=0.0.0.0:2379:2379/tcp
-      - --publish=0.0.0.0:6443:6443/tcp
-      - --cni=flannel
-      - --cri=
-    privileged: true
-    tty: true
-    ports:
-      - 127.0.0.1:6443:6443
-    hostname: master
-    networks:
-      - usernetes
-    volumes:
-      - tls-master:/home/user/.config/usernetes/master
-  node-1:
-    image: ghcr.io/rootless-containers/usernetes
-    command:
-      - --wait-init-certs
-      - --start=u7s-node.target
-      - --cidr=10.0.101.0/24
-# 10250/tcp: kubelet, 8472/udp: flannel
-      - --publish=0.0.0.0:10250:10250/tcp
-      - --publish=0.0.0.0:8472:8472/udp
-      - --cni=flannel
-      - --cri=crio
-    privileged: true
-    tty: true
-    networks:
-      - usernetes
-    hostname: node-1
-    volumes:
-      - tls-node-1:/home/user/.config/usernetes/node
-# FIXME: flanneld should not require tls-master
-# (currently required because master and flanneld share the same etcd cluster)
-      - tls-master:/home/user/.config/usernetes/master
-  node-2:
-    image: ghcr.io/rootless-containers/usernetes
-    command:
-      - --wait-init-certs
-      - --start=u7s-node.target
-      - --cidr=10.0.102.0/24
-      - --publish=0.0.0.0:10250:10250/tcp
-      - --publish=0.0.0.0:8472:8472/udp
-      - --cni=flannel
-      - --cri=crio
-    privileged: true
-    tty: true
-    networks:
-      - usernetes
-    hostname: node-2
-    volumes:
-      - tls-node-2:/home/user/.config/usernetes/node
-      - tls-master:/home/user/.config/usernetes/master
+#  master:
+#    image: ghcr.io/rootless-containers/usernetes
+#    command:
+#      - --wait-init-certs
+#      - --start=u7s-master-with-etcd.target
+#      - --cidr=10.0.100.0/24
+## 2379/tcp: etcd, 6443/tcp: kube-apiserver
+#      - --publish=0.0.0.0:2379:2379/tcp
+#      - --publish=0.0.0.0:6443:6443/tcp
+#      - --cni=flannel
+#      - --cri=
+#    privileged: true
+#    tty: true
+#    ports:
+#      - 127.0.0.1:6443:6443
+#    hostname: master
+#    networks:
+#      - usernetes
+#    volumes:
+#      - tls-master:/home/user/.config/usernetes/master
+#  node-1:
+#    image: ghcr.io/rootless-containers/usernetes
+#    command:
+#      - --wait-init-certs
+#      - --start=u7s-node.target
+#      - --cidr=10.0.101.0/24
+## 10250/tcp: kubelet, 8472/udp: flannel
+#      - --publish=0.0.0.0:10250:10250/tcp
+#      - --publish=0.0.0.0:8472:8472/udp
+#      - --cni=flannel
+#      - --cri=crio
+#    privileged: true
+#    tty: true
+#    networks:
+#      - usernetes
+#    hostname: node-1
+#    volumes:
+#      - tls-node-1:/home/user/.config/usernetes/node
+## FIXME: flanneld should not require tls-master
+## (currently required because master and flanneld share the same etcd cluster)
+#      - tls-master:/home/user/.config/usernetes/master
+#  node-2:
+#    image: ghcr.io/rootless-containers/usernetes
+#    command:
+#      - --wait-init-certs
+#      - --start=u7s-node.target
+#      - --cidr=10.0.102.0/24
+#      - --publish=0.0.0.0:10250:10250/tcp
+#      - --publish=0.0.0.0:8472:8472/udp
+#      - --cni=flannel
+#      - --cri=crio
+#    privileged: true
+#    tty: true
+#    networks:
+#      - usernetes
+#    hostname: node-2
+#    volumes:
+#      - tls-node-2:/home/user/.config/usernetes/node
+#      - tls-master:/home/user/.config/usernetes/master
 networks:
   usernetes:
+    driver: bridge
 volumes:
+  tmp:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
   tls-master:
     driver_opts:
       type: tmpfs

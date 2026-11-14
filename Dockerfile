@@ -128,7 +128,7 @@ RUN git pull && git checkout ${KUBE_NODE_COMMIT}
 ARG KUBE_GIT_VERSION
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
 RUN KUBE_STATIC_OVERRIDES=kubelet \
-  make --quiet kube-proxy kubelet && \
+  make --quiet kube-proxy kubelet kubeadm && \
   mkdir /out && cp _output/bin/kube* /out
 
 #### netpol (netpol-build)
@@ -185,29 +185,29 @@ COPY --from=etcd-build /out/* /
 COPY --from=cfssl-build /out/* /
 
 #### Test (test-main)
-# FROM quay.io/flysangel/jrei/systemd-ubuntu:${UBUNTU_RELEASE} AS test-main
-FROM docker.io/library/ubuntu:${UBUNTU_RELEASE}
+FROM quay.io/flysangel/jrei/systemd-ubuntu:${UBUNTU_RELEASE} AS test-main
+# FROM docker.io/library/ubuntu:${UBUNTU_RELEASE}
 
-ENV LC_ALL=C
-ENV DEBIAN_FRONTEND=noninteractive
+# ENV LC_ALL=C
+# ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update \
-    && apt-get install -y systemd systemd-sysv \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# RUN apt-get update \
+#     && apt-get install -y systemd systemd-sysv \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN cd /lib/systemd/system/sysinit.target.wants/ \
-    && rm $(ls | grep -v systemd-tmpfiles-setup)
+# RUN cd /lib/systemd/system/sysinit.target.wants/ \
+#     && rm $(ls | grep -v systemd-tmpfiles-setup)
 
-RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
-    /etc/systemd/system/*.wants/* \
-    /lib/systemd/system/local-fs.target.wants/* \
-    /lib/systemd/system/sockets.target.wants/*udev* \
-    /lib/systemd/system/sockets.target.wants/*initctl* \
-    /lib/systemd/system/basic.target.wants/* \
-    /lib/systemd/system/anaconda.target.wants/* \
-    /lib/systemd/system/plymouth* \
-    /lib/systemd/system/systemd-update-utmp*
+# RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
+#     /etc/systemd/system/*.wants/* \
+#     /lib/systemd/system/local-fs.target.wants/* \
+#     /lib/systemd/system/sockets.target.wants/*udev* \
+#     /lib/systemd/system/sockets.target.wants/*initctl* \
+#     /lib/systemd/system/basic.target.wants/* \
+#     /lib/systemd/system/anaconda.target.wants/* \
+#     /lib/systemd/system/plymouth* \
+#     /lib/systemd/system/systemd-update-utmp*
 
 COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
 RUN apt-get update -y && \
@@ -225,6 +225,7 @@ COPY --from=bin-main --chown=usernetes:usernetes / /opt/usernetes/bin
 RUN ln -sf /opt/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo && \
   mkdir -p /var/lib/systemd/linger && \
   touch /var/lib/systemd/linger/usernetes && \
+  printf "%s\t%s\t%s\t%s\n" 'usernetes' 'veth' 'lxcbr0' '1' > /etc/lxc/lxc-usernet && \
   su -c "/opt/usernetes/install.sh --install-only" - usernetes
 # VOLUME /opt/usernetes/.local
 # VOLUME /opt/usernetes/.config

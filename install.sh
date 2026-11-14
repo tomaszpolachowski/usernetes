@@ -39,7 +39,6 @@ set -u
 arg0=$0
 cri="crio"
 cni="flannel"
-db="etcd"
 publish=""
 publish_default="0.0.0.0:6443:6443/tcp 0.0.0.0:51820:51820/udp 0.0.0.0:51821:51821/udp 0.0.0.0:10250:10250/tcp"
 #cidr="10.0.42.0/24"
@@ -69,7 +68,7 @@ function usage() {
 
 set +e
 #args=$(getopt -o hp: --long help,publish:,cri:,cni:,cidr:,,delay:,wait-init-certs -n $arg0 -- "$@")
-args=$(getopt -o hp: --long help,publish:,cri:,cni:,db:,,delay:,wait-init-certs,install-only -n $arg0 -- "$@")
+args=$(getopt -o hp: --long help,publish:,delay:,wait-init-certs,install-only -n $arg0 -- "$@")
 getopt_status=$?
 set -e
 if [ $getopt_status != 0 ]; then
@@ -107,18 +106,6 @@ while true; do
 
 	# 	*)
 	# 		ERROR "Unknown CNI \"$cni\". Supported values: \"\" (default) \"flannel\" ."
-	# 		exit 1
-	# 		;;
-	# 	esac
-	# 	shift 2
-	# 	;;
-	# --db)
-	# 	db="$2"
-	# 	case "$db" in
-	# 	"etcd") ;;
-
-	# 	*)
-	# 		ERROR "Unknown DB type \"$db\". Supported values: \"etcd\" (default) \"\"."
 	# 		exit 1
 	# 		;;
 	# 	esac
@@ -251,14 +238,14 @@ if [[ -z "$install_only" ]]; then
 		rm -rf "${cfssldir}"
 	fi
 
-	# Configure backend db cluster for kubernetes
-	mkdir -p "${config_dir}/usernetes/etcd"
-	# Create env file with initial parameters for etcd cluster
-	cat <<EOF >>${config_dir}/usernetes/etcd/env
-ETCD_INITIAL_CLUSTER="$(while read n; do awk -F',' '{print $1"=https://"$2":2380";}' <<< "$n"; done <"${config_dir}/usernetes/master/nodes" | tr '\n' ',' | sed -e 's/,*$//g')"
-ETCD_INITIAL_CLUSTER_TOKEN="$(<"${config_dir}/usernetes/master/token")"
-ETCD_INITIAL_CLUSTER_STATE=new
-EOF
+# 	# Configure backend db cluster for kubernetes
+# 	mkdir -p "${config_dir}/usernetes/etcd"
+# 	# Create env file with initial parameters for etcd cluster
+# 	cat <<EOF >>${config_dir}/usernetes/etcd/env
+# ETCD_INITIAL_CLUSTER="$(while read n; do awk -F',' '{print $1"=https://"$2":2380";}' <<< "$n"; done <"${config_dir}/usernetes/master/nodes" | tr '\n' ',' | sed -e 's/,*$//g')"
+# ETCD_INITIAL_CLUSTER_TOKEN="$(<"${config_dir}/usernetes/master/token")"
+# ETCD_INITIAL_CLUSTER_STATE=new
+# EOF
 fi
 
 ### Begin installation
@@ -314,17 +301,18 @@ EOF
 fi
 
 ### etcd
-cat <<EOF | x u7s-${db}.service
+cat <<EOF | x u7s-etcd.service
 [Unit]
-Description=Usernetes ${db} service
+Description=Usernetes etcd service
 
 [Service]
 Type=notify
 NotifyAccess=all
 TimeoutStartSec=300
-ExecStart=${base}/boot/${db}.sh
+ExecStart=${base}/boot/etcd.sh
+ExecStartPost=${base}/boot/etcd-init.sh
 ${service_common}
-EnvironmentFile=${config_dir}/usernetes/etcd/env
+# EnvironmentFile=${config_dir}/usernetes/etcd/env
 EOF
 
 ### master
@@ -342,8 +330,8 @@ cat <<EOF | x u7s-kube-apiserver.service
 [Unit]
 Description=Usernetes kube-apiserver service
 BindsTo=u7s-rootlesskit.service
-Requires=u7s-${db}.service
-After=u7s-${db}.service
+Requires=u7s-etcd.service
+After=u7s-etcd.service
 PartOf=u7s-master.target
 
 [Service]

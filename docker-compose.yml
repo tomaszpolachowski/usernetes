@@ -6,15 +6,6 @@ services:
       init-certs:
         condition: service_completed_successfully
     image: ghcr.io/tomaszpolachowski/usernetes
-#    command:
-#      - --wait-init-certs
-#      - --start=u7s-master-with-etcd.target
-#      - --cidr=10.0.100.0/24
-## 2379/tcp: etcd, 6443/tcp: kube-apiserver
-#      - --publish=0.0.0.0:2379:2379/tcp
-#      - --publish=0.0.0.0:6443:6443/tcp
-#      - --cni=flannel
-#      - --cri=
     privileged: true
     tty: true
     ports:
@@ -25,11 +16,47 @@ services:
         ipv4_address: 10.100.0.100
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
-      - tmp:/tmp
-      - run:/run
-      - runlock:/run/lock
+      - tmp-master:/tmp
+      - run-master:/run
+      - runlock-master:/run/lock
       - tls-master:/opt/usernetes/.config/usernetes/master
       - tls-node-master:/opt/usernetes/.config/usernetes/node
+  worker-1:
+    depends_on:
+      init-certs:
+        condition: service_completed_successfully
+    image: ghcr.io/tomaszpolachowski/usernetes
+    privileged: true
+    tty: true
+    hostname: worker-1
+    networks:
+      usernetes:
+        ipv4_address: 10.100.0.101
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - tmp-worker-1:/tmp
+      - run-worker-1:/run
+      - runlock-worker-1:/run/lock
+      - tls-master:/opt/usernetes/.config/usernetes/master
+      - tls-node-worker-1:/opt/usernetes/.config/usernetes/node
+#  worker-2:
+#    depends_on:
+#      init-certs:
+#        condition: service_completed_successfully
+#    image: ghcr.io/tomaszpolachowski/usernetes
+#    privileged: true
+#    tty: true
+#    hostname: worker-2
+#    networks:
+#      usernetes:
+#        ipv4_address: 10.100.0.102
+#    volumes:
+#      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+#      - tmp:/tmp
+#      - run:/run
+#      - runlock:/run/lock
+#      - tls-master:/opt/usernetes/.config/usernetes/master
+#      - tls-node-worker-2:/opt/usernetes/.config/usernetes/node
   init-certs:
     image: ghcr.io/tomaszpolachowski/usernetes
     entrypoint: /bin/bash
@@ -38,7 +65,7 @@ services:
     user: usernetes
     command:
       - -c
-      - /usr/bin/mkdir -p /opt/usernetes/run && mkdir -p /opt/usernetes/run && /opt/usernetes/common/cfssl.sh --dir=/opt/usernetes/.config/usernetes --master=master --node=master,10.100.0.100 #--node=node-1 --node=node-2 && /bin/ls -laR /opt/usernetes/run && /usr/bin/sleep infinity
+      - /usr/bin/mkdir -p /opt/usernetes/run && mkdir -p /opt/usernetes/run && /opt/usernetes/common/cfssl.sh --dir=/opt/usernetes/.config/usernetes --master=master --node=master,10.100.0.100 --node=worker-1,10.100.0.101 #--node=worker-2,10.100.0.102 #&& /bin/ls -laR /opt/usernetes/run && /usr/bin/sleep infinity
     privileged: true
     tty: true
     hostname: master
@@ -111,6 +138,36 @@ volumes:
       type: tmpfs
       device: tmpfs
       o: "uid=1000"
+  tmp-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tmp-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
   tls-master:
     driver_opts:
       type: tmpfs
@@ -121,7 +178,12 @@ volumes:
       type: tmpfs
       device: tmpfs
       o: "uid=1000"
-#  tls-node-2:
+  tls-node-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+#  tls-node-worker-2:
 #    driver_opts:
 #      type: tmpfs
 #      device: tmpfs

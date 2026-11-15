@@ -310,7 +310,7 @@ Type=notify
 NotifyAccess=all
 TimeoutStartSec=300
 ExecStart=${base}/boot/etcd.sh
-ExecStartPost=${base}/boot/etcd-init.sh
+ExecStartPre=${base}/boot/etcd-init.sh
 ${service_common}
 # EnvironmentFile=${config_dir}/usernetes/etcd/env
 EOF
@@ -338,6 +338,7 @@ PartOf=u7s-master.target
 Type=notify
 NotifyAccess=all
 ExecStart=${base}/boot/kube-apiserver.sh
+ExecStartPost=${base}/boot/kube-apiserver-init.sh
 ${service_common}
 EOF
 
@@ -450,15 +451,13 @@ EOF
 	fi
 fi
 
+INFO "Enabling u7s.target"
+set -x
 mkdir -p "${config_dir}/systemd/user/default.target.wants"
 ln -s "${config_dir}/systemd/user/u7s.target" "${config_dir}/systemd/user/default.target.wants/u7s.target"
+set +x
 
 if [[ -z "$install_only" ]]; then
-	### Finish installation
-	INFO "Enabling u7s.target"
-	set -x
-	systemctl --user -T enable u7s.target
-	set +x
 	INFO "Starting u7s-master.target"
 	set -x
 	time systemctl --user start -T u7s-master.target

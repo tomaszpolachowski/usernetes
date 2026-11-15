@@ -184,52 +184,25 @@ COPY --from=netpol-build /out/* /
 COPY --from=etcd-build /out/* /
 COPY --from=cfssl-build /out/* /
 
-#### Test (test-main)
-FROM quay.io/flysangel/jrei/systemd-ubuntu:${UBUNTU_RELEASE} AS test-main
-# FROM docker.io/library/ubuntu:${UBUNTU_RELEASE}
-
-# ENV LC_ALL=C
-# ENV DEBIAN_FRONTEND=noninteractive
-
-# RUN apt-get update \
-#     && apt-get install -y systemd systemd-sysv \
-#     && apt-get clean \
-#     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# RUN cd /lib/systemd/system/sysinit.target.wants/ \
-#     && rm $(ls | grep -v systemd-tmpfiles-setup)
-
-# RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
-#     /etc/systemd/system/*.wants/* \
-#     /lib/systemd/system/local-fs.target.wants/* \
-#     /lib/systemd/system/sockets.target.wants/*udev* \
-#     /lib/systemd/system/sockets.target.wants/*initctl* \
-#     /lib/systemd/system/basic.target.wants/* \
-#     /lib/systemd/system/anaconda.target.wants/* \
-#     /lib/systemd/system/plymouth* \
-#     /lib/systemd/system/systemd-update-utmp*
-
+#### Main
+FROM quay.io/flysangel/jrei/systemd-ubuntu:${UBUNTU_RELEASE} AS main
 COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
 RUN apt-get update -y && \
   apt-get install -q -y conntrack fuse3 git iptables nftables time which \
-  systemd-container \
-  curl iproute2 net-tools jq lxc uuid-runtime && \
+    systemd-container \
+    curl iproute2 net-tools jq lxc uuid-runtime && \
   userdel ubuntu && \
-  useradd -m -d /opt/usernetes -u 1000 -G systemd-journal -c Usernetes -s /bin/bash usernetes && \
+  useradd -m -d /opt/usernetes -u 1000 -G systemd-journal -G adm -G root -c Usernetes -s /bin/bash usernetes && \
   install -d -m 755 -o usernetes -g usernetes /opt/usernetes/.local /opt/usernetes/.config /opt/usernetes/.config/usernetes && \
   rm -rf /tmp/* && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/*
-COPY --chown=usernetes:usernetes . /opt/usernetes
-COPY --from=bin-main --chown=usernetes:usernetes / /opt/usernetes/bin
-RUN ln -sf /opt/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo && \
+  rm -rf /var/lib/apt/lists/* && \
   mkdir -p /var/lib/systemd/linger && \
   touch /var/lib/systemd/linger/usernetes && \
-  printf "%s\t%s\t%s\t%s\n" 'usernetes' 'veth' 'lxcbr0' '1' > /etc/lxc/lxc-usernet && \
-  su -c "/opt/usernetes/install.sh --install-only" - usernetes
-# VOLUME /opt/usernetes/.local
-# VOLUME /opt/usernetes/.config
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-#   CMD ["unsudo", "systemctl", "--user", "is-system-running"]
+  ln -s /usr/lib/systemd/system/systemd-logind.service /usr/lib/systemd/system/multi-user.target.wants/systemd-logind.service && \
+  printf "%s\t%s\t%s\t%s\n" 'usernetes' 'veth' 'lxcbr0' '1' > /etc/lxc/lxc-usernet
+COPY --chown=usernetes:usernetes . /opt/usernetes
+COPY --from=bin-main --chown=usernetes:usernetes / /opt/usernetes/bin
+RUN su -c "/opt/usernetes/install.sh --install-only" - usernetes
 ENTRYPOINT ["/lib/systemd/systemd"]
 CMD ["--system", "--unit=multi-user.target"]

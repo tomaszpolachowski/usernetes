@@ -1,23 +1,24 @@
 name: Main
-on: [push, pull_request]
-env:
-  DOCKER_BUILDKIT: 1
+
+on:
+  push:
+    branches:
+      - 'feature/run-in-container'
+
 jobs:
-  docker:
-    name: "Docker"
-    runs-on: ubuntu-latest
+  podman:
+    name: "Podman"
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
       - name: "System info"
         run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h"
       - uses: actions/checkout@v3
       - name: "Make"
-        run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
+        run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):test" make image
       - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
-        run: |
-          make clean
-          podman builder prune -f
-      - name: "Smoke test (CRI-O)"
-        run: ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
+        run: podman builder prune -f
+      - name: "Smoke test (single-node)"
+        run: ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):test
       - name: "Smoke test (multi-node cluster with Flannel)"
         run: ./hack/smoketest-podman-compose.sh

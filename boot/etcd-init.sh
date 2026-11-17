@@ -2,6 +2,14 @@
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
 
+PROBES=50
+while [[ ! -f $XDG_CONFIG_HOME/usernetes/master/done ]]
+do
+	sleep 1
+	((PROBES--))
+	[[ $PROBES -le 0 ]] && exit 1
+done
+
 # Configure backend db cluster for kubernetes
 mkdir -p "$XDG_CONFIG_HOME/usernetes/etcd"
 # Create env file with initial parameters for etcd cluster

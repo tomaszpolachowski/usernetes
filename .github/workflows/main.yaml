@@ -9,15 +9,15 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: "System info"
-        run: sh -xec "uname -a; docker info; cat /proc/cpuinfo; df -h"
+        run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h"
       - uses: actions/checkout@v3
       - name: "Make"
         run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
       - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
         run: |
           make clean
-          docker builder prune -a -f
+          podman builder prune -f
       - name: "Smoke test (CRI-O)"
-        run: ./hack/smoketest-docker.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]') --cri=crio
+        run: ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')
       - name: "Smoke test (multi-node cluster with Flannel)"
-        run: ./hack/smoketest-docker-compose.sh
+        run: ./hack/smoketest-podman-compose.sh

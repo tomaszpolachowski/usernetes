@@ -9,12 +9,12 @@ function cleanup() {
 trap cleanup EXIT
 
 set -x
-./install.sh $@
+./install.sh
 
-export KUBECONFIG=$HOME/.config/usernetes/master/admin-localhost.kubeconfig
+export KUBECONFIG=$HOME/.config/usernetes/master/admin.kubeconfig
 export PATH=$(pwd)/bin:$PATH
 
-if ! timeout 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready" | grep -v "NotReady" | wc -l) = "1" ]; do sleep 10; done'; then
+if ! timeout -s TERM -k 10 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready" | grep -v "NotReady" | wc -l) = "1" ]; do sleep 10; done'; then
 	ERROR "Node is not ready."
 	set -x
 	set +eu
@@ -26,7 +26,7 @@ if ! timeout 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready" | grep -v "N
 fi
 
 kubectl get nodes -o wide
-if ! timeout 60 kubectl run --rm -i --image busybox --restart=Never hello echo hello; then
+if ! timeout -s TERM -k 10 60 kubectl run --rm -i --image busybox --restart=Never hello -- echo hello; then
 	ERROR "Pod is not ready."
 	set -x
 	set +eu

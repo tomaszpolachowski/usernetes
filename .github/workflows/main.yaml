@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: "System info"
-        run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h"
+        run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h; whoami; id; cat /etc/subuid; cat /etc/subgid; cat /etc/passwd"
       - uses: actions/checkout@v3
       # - name: "Make"
       #   run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image

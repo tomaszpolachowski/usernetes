@@ -26,8 +26,8 @@ if ! timeout -s TERM -k 10 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready
 fi
 
 kubectl get nodes -o wide
-kubectl get pods -o wide
-kubectl get deployments -o wide
+kubectl get pods -A -o wide
+kubectl get deployments -A -o wide
 kubectl describe deployment -n kube-system coredns
 systemctl --user status --no-pager
 systemctl --user status u7s-kube-controller-manager.service

@@ -43,4 +43,5 @@ jobs:
           container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target)
           podman cp $container:/opt/usernetes/bin ./bin
           podman rm $container
+          sudo sysctl -w kernel.unprivileged_userns_clone=1
           ./hack/smoketest-binaries.sh

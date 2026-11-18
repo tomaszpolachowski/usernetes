@@ -2,7 +2,7 @@
 source $(realpath $(dirname $0))/smoketest-common.inc.sh
 cd $(realpath $(dirname $0)/..)
 function cleanup() {
-	journalctl -xe --no-pager
+	journalctl --user -xe --no-pager
 	$(pwd)/show-status.sh
 	$(pwd)/uninstall.sh || true
 	eval $($(pwd)/show-cleanup-command.sh) || true

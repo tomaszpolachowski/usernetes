@@ -29,6 +29,7 @@ kubectl get nodes -o wide
 kubectl get pods -A -o wide
 kubectl get deployments -A -o wide
 kubectl describe deployment -n kube-system coredns
+kubectl describe pod deployment/coredns -n kube-system
 systemctl --user status --no-pager
 systemctl --user status u7s-kube-controller-manager.service
 systemctl --user status u7s-kube-scheduler.service

@@ -26,6 +26,8 @@ jobs:
       - name: "Smoke test (single-node)"
         run: |
           podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+          sudo echo 'runner:200000:100000' > /etc/subuid && \
+          sudo echo 'runner:200000:100000' > /etc/subgid && \
           ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]') && \
           podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
       - name: "Smoke test (multi-node cluster with Flannel)"

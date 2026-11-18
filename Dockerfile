@@ -200,8 +200,6 @@ RUN apt-get update -y && \
   mkdir -p /var/lib/systemd/linger && \
   touch /var/lib/systemd/linger/usernetes && \
   ln -s /usr/lib/systemd/system/systemd-logind.service /usr/lib/systemd/system/multi-user.target.wants/systemd-logind.service && \
-  echo 'usernetes:165536:65536' > /etc/subuid && \
-  echo 'usernetes:165536:65536' > /etc/subgid && \
   printf "%s\t%s\t%s\t%s\n" 'usernetes' 'veth' 'lxcbr0' '1' > /etc/lxc/lxc-usernet
 COPY --chown=usernetes:usernetes . /opt/usernetes
 COPY --from=bin-main --chown=usernetes:usernetes / /opt/usernetes/bin

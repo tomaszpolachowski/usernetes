@@ -16,15 +16,15 @@ jobs:
       - uses: actions/checkout@v3
       # - name: "Check Docker"
       #   run: sh -xec "docker version; docker info; docker run -dt --privileged --entrypoint /lib/systemd/systemd --name systemd-ubuntu --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro quay.io/flysangel/jrei/systemd-ubuntu:26.04 --system --unit=multi-user.target; sleep 5; docker logs systemd-ubuntu; docker exec -t systemd-ubuntu /usr/bin/systemctl status --no-pager; docker rm -f systemd-ubuntu"
-      - name: "Make"
-        run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
-      - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
-        run: podman builder prune -f
-      - name: Push image to GHCR
-        run: |
-          podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-          podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
-          podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+      # - name: "Make"
+      #   run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
+      # - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
+      #   run: podman builder prune -f
+      # - name: Push image to GHCR
+      #   run: |
+      #     podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+      #     podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
+      #     podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
       - name: "Smoke test (single-node)"
         run: |
           podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \

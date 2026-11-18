@@ -26,6 +26,7 @@ if ! timeout -s TERM -k 10 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready
 fi
 
 kubectl get nodes -o wide
+kubectl get pods -o wide
 
 INFO "FIXME: remove this sleep"
 sleep 10

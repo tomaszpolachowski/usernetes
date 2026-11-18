@@ -2,6 +2,7 @@
 source $(realpath $(dirname $0))/smoketest-common.inc.sh
 cd $(realpath $(dirname $0)/..)
 function cleanup() {
+	journalctl -xe --no-pager
 	$(pwd)/show-status.sh
 	$(pwd)/uninstall.sh || true
 	eval $($(pwd)/show-cleanup-command.sh) || true
@@ -21,7 +22,6 @@ if ! timeout -s TERM -k 10 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready
 	systemctl --user status u7s-kube-apiserver
 	kubectl get nodes -o wide
 	kubectl get nodes -o yaml
-	journalctl -xe --no-pager
 	exit 1
 fi
 
@@ -36,7 +36,6 @@ if ! timeout -s TERM -k 10 60 kubectl run --rm -i --image busybox --restart=Neve
 	set +eu
 	kubectl get pods -o yaml
 	kubectl get nodes -o yaml
-	journalctl -xe --no-pager
 	exit 1
 fi
 

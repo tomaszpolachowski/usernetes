@@ -31,4 +31,6 @@ jobs:
           sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]') && \
           sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
       - name: "Smoke test (multi-node cluster with Flannel)"
-        run: ./hack/smoketest-podman-compose.sh
+        run: |
+          sudo apt-get install -y podman-compose && \
+          sudo ./hack/smoketest-podman-compose.sh

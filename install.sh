@@ -454,7 +454,7 @@ fi
 INFO "Enabling u7s.target"
 set -x
 mkdir -p "${config_dir}/systemd/user/default.target.wants"
-ln -s "${config_dir}/systemd/user/u7s.target" "${config_dir}/systemd/user/default.target.wants/u7s.target"
+ln -fs "${config_dir}/systemd/user/u7s.target" "${config_dir}/systemd/user/default.target.wants/u7s.target"
 set +x
 
 if [[ -z "$install_only" ]]; then

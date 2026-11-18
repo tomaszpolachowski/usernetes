@@ -44,6 +44,9 @@ export PATH=$tmpdir/bin:$PATH
 INFO "Waiting for node to be ready."
 if ! timeout -s INT -k 10 120 sh -exc "until [ \$(kubectl get nodes | grep \"Ready\" | grep -v \"NotReady\" | wc -l) = \"1\" ]; do sleep 10; done"; then
 	ERROR "Node is not ready."
+	podman exec -t $container journalctl -xe
+	podman exec -t $container systemctl status
+	podman exec -t $container machinectl shell usernetes@ systemctl --user status
 	kubectl get nodes -o wide
 	kubectl get nodes -o yaml
 	exit 1

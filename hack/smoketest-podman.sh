@@ -57,7 +57,7 @@ if ! timeout -s INT -k 10 120 sh -exc "until [ \$(kubectl get nodes | grep \"Rea
 	kubectl get nodes -o yaml
 	exit 1
 fi
-
+sleep 10
 INFO "Waiting for pod to run."
 if ! timeout -s TERM -k 10 60 time kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo hello $container; then
 	ERROR "Pod did not run successfully."

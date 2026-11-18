@@ -26,6 +26,10 @@ if ! timeout -s TERM -k 10 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready
 fi
 
 kubectl get nodes -o wide
+
+INFO "FIXME: remove this sleep"
+sleep 10
+
 if ! timeout -s TERM -k 10 60 kubectl run --rm -i --image busybox --restart=Never hello -- echo hello; then
 	ERROR "Pod is not ready."
 	set -x

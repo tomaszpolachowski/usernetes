@@ -6,14 +6,15 @@ on:
       - 'feature/run-in-container'
 
 jobs:
-  podman:
-    name: "Podman"
+  test:
+    name: "Smoke tests"
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
       - name: "System info"
         run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h; whoami; id; cat /etc/subuid; cat /etc/subgid; cat /etc/passwd; cat /etc/hosts"
-      - uses: actions/checkout@v3
+      - name: "Checkout"
+        uses: actions/checkout@v3
       # - name: "Check Docker"
       #   run: sh -xec "docker version; docker info; docker run -dt --privileged --entrypoint /lib/systemd/systemd --name systemd-ubuntu --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro quay.io/flysangel/jrei/systemd-ubuntu:26.04 --system --unit=multi-user.target; sleep 5; docker logs systemd-ubuntu; docker exec -t systemd-ubuntu /usr/bin/systemctl status --no-pager; docker rm -f systemd-ubuntu"
       # - name: "Make"
@@ -25,12 +26,17 @@ jobs:
       #     podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
       #     podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
       #     podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
-      - name: "Smoke test (single-node)"
+      # - name: "Smoke test (single-node in Podman)"
+      #   run: |
+      #     sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+      #     sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]') && \
+      #     sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+      # - name: "Smoke test (multi-node cluster with Flannel in Podman)"
+      #   run: |
+      #     sudo apt-get install -y podman-compose && \
+      #     sudo ./hack/smoketest-podman-compose.sh
+      - name: "Smoke test (binaries on host)"
         run: |
-          sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-          sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]') && \
-          sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
-      - name: "Smoke test (multi-node cluster with Flannel)"
-        run: |
-          sudo apt-get install -y podman-compose && \
-          sudo ./hack/smoketest-podman-compose.sh
+          sudo apt-get install -y uuid-runtime conntrack lxc iptables && \
+          for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
+          ./hack/smoketest-binaries.sh

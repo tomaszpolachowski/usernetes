@@ -27,6 +27,9 @@ fi
 
 kubectl get nodes -o wide
 kubectl get pods -o wide
+systemctl --user status --no-pager
+systemctl --user status u7s-kube-controller-manager.service
+systemctl --user status u7s-kube-scheduler.service
 
 INFO "FIXME: remove this sleep"
 sleep 10

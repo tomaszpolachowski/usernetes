@@ -30,7 +30,7 @@ kubectl get nodes -o wide
 INFO "FIXME: remove this sleep"
 sleep 10
 
-if ! timeout -s TERM -k 10 60 kubectl run --rm -i --image busybox --restart=Never hello -- echo hello; then
+if ! timeout -s TERM -k 10 60 kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo hello; then
 	ERROR "Pod is not ready."
 	set -x
 	set +eu

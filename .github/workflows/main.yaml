@@ -29,7 +29,7 @@ jobs:
       # - name: "Smoke test (single-node in Podman)"
       #   run: |
       #     sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-      #     sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]') && \
+      #     sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
       #     sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
       # - name: "Smoke test (multi-node cluster with Flannel in Podman)"
       #   run: |
@@ -39,4 +39,7 @@ jobs:
         run: |
           sudo apt-get install -y uuid-runtime conntrack lxc iptables && \
           for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
+          container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target)
+          podman cp $container:/opt/usernetes/bin ./bin
+          podman rm $container
           ./hack/smoketest-binaries.sh

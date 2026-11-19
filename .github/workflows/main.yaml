@@ -40,9 +40,11 @@ jobs:
           sudo apt-get install -y uuid-runtime conntrack lxc iptables jq bind9-dnsutils && \
           sudo sh -c 'echo "runner\tveth\tlxcbr0\t1" > /etc/lxc/lxc-usernet' && \
           for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
-          container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target)
-          podman cp $container:/opt/usernetes/bin ./bin
-          podman rm $container
-          sudo sysctl -w kernel.unprivileged_userns_clone=1
-          echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target) && \
+          podman cp $container:/opt/usernetes/bin ./bin && \
+          podman rm $container && \
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 && \
+          echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns && \
+          sudo sysctl -w net.ipv4.ip_forward=1 && \
+          sudo sysctl -w net.ipv6.conf.all.forwarding=1 && \
           ./hack/smoketest-binaries.sh

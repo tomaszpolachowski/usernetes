@@ -19,9 +19,10 @@ if ! timeout -s TERM -k 10 60 sh -exc 'until [ $(kubectl get nodes | grep "Ready
 	ERROR "Node is not ready."
 	set -x
 	set +eu
-	systemctl --user status u7s-kube-apiserver
+	systemctl --user status
 	kubectl get nodes -o wide
-	kubectl get nodes -o yaml
+	ip a
+	ip r
 	exit 1
 fi
 
@@ -52,8 +53,11 @@ if ! timeout -s TERM -k 10 60 kubectl run --attach=true --rm --image busybox --r
 	ERROR "Pod is not ready."
 	set -x
 	set +eu
-	kubectl get pods -o yaml
-	kubectl get nodes -o yaml
+	systemctl --user status
+	kubectl get pods -o wide
+	kubectl get nodes -o wide
+	ip a
+	ip r
 	exit 1
 fi
 

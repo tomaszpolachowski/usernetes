@@ -10,6 +10,7 @@ function cleanup() {
 trap cleanup EXIT
 
 set -x
+sed -i 's/--net=lxc-user-nic/--net=slirp4netns/g' ./boot/rootlesskit.sh
 ./install.sh
 
 export KUBECONFIG=$HOME/.config/usernetes/master/admin.kubeconfig

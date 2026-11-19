@@ -37,7 +37,7 @@ jobs:
       #     sudo ./hack/smoketest-podman-compose.sh
       - name: "Smoke test (binaries on host)"
         run: |
-          sudo apt-get install -y uuid-runtime conntrack lxc iptables jq bind9-dnsutils && \
+          sudo apt-get install -y uuid-runtime conntrack lxc iptables jq bind9-dnsutils slirp4netns && \
           sudo sh -c 'echo "runner\tveth\tlxcbr0\t1" > /etc/lxc/lxc-usernet' && \
           for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
           container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target) && \

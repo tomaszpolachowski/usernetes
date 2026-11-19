@@ -15,24 +15,15 @@ jobs:
         run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h; whoami; id; cat /etc/subuid; cat /etc/subgid; cat /etc/passwd; cat /etc/hosts"
       - name: "Checkout"
         uses: actions/checkout@v3
-      - name: "Make"
-        run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
-      - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
-        run: podman builder prune -f
-      - name: Push image to GHCR
-        run: |
-          podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-          podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
-          podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
-      # - name: "Smoke test (single-node in Podman)"
+      # - name: "Make"
+      #   run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
+      # - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
+      #   run: podman builder prune -f
+      # - name: Push image to GHCR
       #   run: |
-      #     sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-      #     sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
-      #     sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
-      # - name: "Smoke test (multi-node cluster with Flannel in Podman)"
-      #   run: |
-      #     sudo apt-get install -y podman-compose && \
-      #     sudo ./hack/smoketest-podman-compose.sh
+      #     podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+      #     podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
+      #     podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
       - name: "Smoke test (binaries on host)"
         run: |
           sudo apt-get install -y conntrack && \
@@ -45,7 +36,15 @@ jobs:
           sudo sysctl -w net.ipv4.ip_forward=1 && \
           sudo sysctl -w net.ipv6.conf.all.forwarding=1 && \
           sed -i 's/--net=lxc-user-nic/--net=slirp4netns/g' ./boot/rootlesskit.sh && \
-          ./hack/smoketest-binaries.sh
-#          (./hack/smoketest-binaries.sh || ./hack/smoketest-binaries.sh || exit 1)
+           (./hack/smoketest-binaries.sh || ./hack/smoketest-binaries.sh || exit 1)
+      - name: "Smoke test (single-node in Podman)"
+        run: |
+          sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+          sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
+          sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+      - name: "Smoke test (multi-node cluster with Flannel in Podman)"
+        run: |
+          sudo apt-get install -y podman-compose && \
+          sudo ./hack/smoketest-podman-compose.sh
 # sudo apt-get install -y uuid-runtime conntrack lxc iptables jq bind9-dnsutils slirp4netns && \
 # sudo sh -c 'echo "runner\tveth\tlxcbr0\t1" > /etc/lxc/lxc-usernet' && \

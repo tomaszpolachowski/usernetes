@@ -37,6 +37,9 @@ systemctl --user status --no-pager
 systemctl --user status u7s-kube-controller-manager.service
 systemctl --user status u7s-kube-scheduler.service
 kubectl get pods -n kube-system | cut -f1 -d' ' | tail -n +2 | xargs -I{} kubectl describe pod -n kube-system {}
+cat /etc/hosts
+cat /etc/resolv.conf
+./boot/nsenter.sh curl -i http://google.com
 
 if ! timeout -s TERM -k 10 60 kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo hello; then
 	ERROR "Pod is not ready."

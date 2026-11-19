@@ -6,24 +6,27 @@ on:
       - 'feature/run-in-container'
 
 jobs:
-  test:
-    name: "Smoke tests"
+  build:
+    name: "Build"
     runs-on: ubuntu-26.04
-    timeout-minutes: 40
+    timeout-minutes: 25
     steps:
-      - name: "System info"
-        run: sh -xec "uname -a; podman info; cat /proc/cpuinfo; df -h; whoami; id; cat /etc/subuid; cat /etc/subgid; cat /etc/passwd; cat /etc/hosts"
       - name: "Checkout"
         uses: actions/checkout@v3
-      # - name: "Make"
-      #   run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
-      # - name: "Clean up (To avoid `node.kubernetes.io/disk-pressure` taint)"
-      #   run: podman builder prune -f
-      # - name: Push image to GHCR
-      #   run: |
-      #     podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-      #     podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
-      #     podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+      - name: "Build"
+        run: IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" make image
+      - name: "Clean"
+        run: podman builder prune -f
+      - name: "Push"
+        run: |
+          podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+          podman push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
+          podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+  test:
+    name: "Test"
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
       - name: "Smoke test (binaries on host)"
         run: |
           sudo apt-get install -y conntrack && \

@@ -18,6 +18,8 @@ jobs:
           ./update-Dockerfile.sh
           if [[ -z "$(git diff Dockerfile)" ]]; then exit 0; fi
           branch="release/$(date +%Y%m%d).0"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$branch"
           git add Dockerfile
           git commit -m 'Update Dockerfile'

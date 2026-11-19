@@ -1,18 +1,19 @@
 # targets prefixed with underscore are not intended be invoked by human
 
 .DEFAULT_GOAL := binaries
-IMAGE=ghcr.io/tomaszpolachowski/usernetes
+IMAGE         := ghcr.io/tomaszpolachowski/usernetes:latest
+BUILDER       := podman
 
 binaries: image _binaries
 
 _binaries:
 	rm -rf bin
-	$(eval cid := $(shell podman create $(IMAGE)))
-	podman cp $(cid):/opt/usernetes/bin ./bin
-	podman rm $(cid)
+	$(eval cid := $(shell $(BUILDER) create $(IMAGE)))
+	$(BUILDER) cp $(cid):/opt/usernetes/bin ./bin
+	$(BUILDER) rm $(cid)
 
 image:
-	podman build -t $(IMAGE) .
+	$(BUILDER) build -t $(IMAGE) .
 
 test: image _test
 
@@ -22,15 +23,15 @@ _test:
 up: image _up
 
 _up:
-	podman-compose --project-name=usernetes up -d
-	podman run --rm -v usernetes_tls-master:/a busybox timeout 60 sh -c "until test -f /a/done; do sleep 1; echo \"waiting for /a/done\"; done"
+	$(BUILDER)-compose --project-name=usernetes up -d
+	$(BUILDER) run --rm -v usernetes_tls-master:/a busybox timeout 60 sh -c "until test -f /a/done; do sleep 1; echo \"waiting for /a/done\"; done"
 	mkdir -p $(HOME)/.config/usernetes
-	podman run --rm -v usernetes_tls-master:/a busybox cat /a/admin.kubeconfig > $(HOME)/.config/usernetes/admin.kubeconfig
+	$(BUILDER) run --rm -v usernetes_tls-master:/a busybox cat /a/admin.kubeconfig > $(HOME)/.config/usernetes/admin.kubeconfig
 	sed -i s/master:6443/127.0.0.1:6443/g $(HOME)/.config/usernetes/admin.kubeconfig
 	echo "To use kubectl: export KUBECONFIG=$(HOME)/.config/usernetes/admin.kubeconfig"
 
 down:
-	podman-compose --project-name=usernetes down -v -t 0
+	$(BUILDER)-compose --project-name=usernetes down -v -t 0
 	rm -f $(HOME)/.config/usernetes/admin.kubeconfig
 
 artifact: binaries _artifact

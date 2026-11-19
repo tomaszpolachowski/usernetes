@@ -47,4 +47,5 @@ jobs:
           echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns && \
           sudo sysctl -w net.ipv4.ip_forward=1 && \
           sudo sysctl -w net.ipv6.conf.all.forwarding=1 && \
+          sed -i 's/--net=lxc-user-nic/--net=slirp4netns/g' ./boot/rootlesskit.sh && \
           ./hack/smoketest-binaries.sh

@@ -62,7 +62,7 @@ INFO "FIXME: remove this sleep"
 sleep 10
 
 INFO "Waiting for pod to run."
-if ! timeout -s TERM -k 10 60 time kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo hello $container; then
+if ! timeout -s TERM -k 10 60 time kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo "*************** HELLO $container ***************"; then
 	ERROR "Pod did not run successfully."
 	kubectl get pods -o yaml
 	kubectl get nodes -o yaml

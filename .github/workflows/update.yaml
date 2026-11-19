@@ -1,0 +1,23 @@
+name: Check for Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: "Check for Updates"
+        run: |
+          ./update-Dockerfile.sh
+          if [[ -z "$(git diff Dockerfile)" ]]; then exit 0; fi
+          branch="release/$(date +%Y%m%d).0"
+          git checkout -b "$branch"
+          git add Dockerfile
+          git commit -m 'Update Dockerfile'
+          git push --set-upstream origin "$branch"

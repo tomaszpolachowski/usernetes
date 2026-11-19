@@ -1,40 +1,38 @@
 # targets prefixed with underscore are not intended be invoked by human
 
 .DEFAULT_GOAL := binaries
-IMAGE=ghcr.io/rootless-containers/usernetes
+IMAGE         := ghcr.io/tomaszpolachowski/usernetes:latest
+BUILDER       := podman
 
 binaries: image _binaries
 
 _binaries:
 	rm -rf bin
-	$(eval cid := $(shell docker create $(IMAGE)))
-	docker cp $(cid):/home/user/usernetes/bin ./bin
-	docker rm $(cid)
+	$(eval cid := $(shell $(BUILDER) create $(IMAGE)))
+	$(BUILDER) cp $(cid):/opt/usernetes/bin ./bin
+	$(BUILDER) rm $(cid)
 
 image:
-ifeq ($(DOCKER_BUILDKIT),1)
-	./hack/translate-dockerfile-runopt-directive.sh < Dockerfile | docker build -t $(IMAGE) -f - $(DOCKER_BUILD_FLAGS) .
-else
-	docker build -t $(IMAGE) $(DOCKER_BUILD_FLAGS) .
-endif
+	$(BUILDER) build -t $(IMAGE) .
 
 test: image _test
 
 _test:
-	./hack/smoketest-docker.sh u7s-test-crio $(IMAGE) --cri=crio
+	./hack/smoketest-podman.sh u7s-test-crio $(IMAGE) --cri=crio
 
 up: image _up
 
 _up:
-	docker-compose --project-name=usernetes up -d
-	docker run --rm -v usernetes_tls-master:/a busybox timeout 60 sh -c "until test -f /a/done; do sleep 1; echo \"waiting for /a/done\"; done"
+	$(BUILDER)-compose --project-name=usernetes up -d
+	$(BUILDER) run --rm -v usernetes_tls-master:/a busybox timeout 60 sh -c "until test -f /a/done; do sleep 1; echo \"waiting for /a/done\"; done"
 	mkdir -p $(HOME)/.config/usernetes
-	docker run --rm -v usernetes_tls-master:/a busybox cat /a/admin-localhost.kubeconfig > $(HOME)/.config/usernetes/docker-compose.kubeconfig
-	echo "To use kubectl: export KUBECONFIG=$(HOME)/.config/usernetes/docker-compose.kubeconfig"
+	$(BUILDER) run --rm -v usernetes_tls-master:/a busybox cat /a/admin.kubeconfig > $(HOME)/.config/usernetes/admin.kubeconfig
+	sed -i s/master:6443/127.0.0.1:6443/g $(HOME)/.config/usernetes/admin.kubeconfig
+	echo "To use kubectl: export KUBECONFIG=$(HOME)/.config/usernetes/admin.kubeconfig"
 
 down:
-	docker-compose --project-name=usernetes down -v -t 0
-	rm -f $(HOME)/.config/usernetes/docker-compose.kubeconfig
+	$(BUILDER)-compose --project-name=usernetes down -v -t 0
+	rm -f $(HOME)/.config/usernetes/admin.kubeconfig
 
 artifact: binaries _artifact
 

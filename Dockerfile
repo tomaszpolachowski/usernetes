@@ -1,6 +1,3 @@
-# this dockerfile can be translated to `docker/dockerfile:1-experimental` syntax for enabling cache mounts:
-# $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
-
 ### Version definitions
 # use ./hack/show-latest-releases.sh to get the latest releases
 
@@ -24,8 +21,8 @@ ARG WG_TOOLS_RELEASE=v1.0.20260223
 ARG CRI_TOOLS_RELEASE=v1.37.0
 
 ARG ALPINE_RELEASE=3.24
-ARG GO_RELEASE=1.27.3
-ARG UBUNTU_RELEASE=resolute
+ARG GO_RELEASE=1.27.4
+ARG UBUNTU_RELEASE=26.04
 
 ### Common base images (common-*)
 FROM docker.io/alpine:${ALPINE_RELEASE} AS common-alpine
@@ -128,7 +125,7 @@ RUN git pull && git checkout ${KUBE_NODE_COMMIT}
 ARG KUBE_GIT_VERSION
 # runopt = --mount=type=cache,id=u7s-k8s-build-cache,target=/root
 RUN KUBE_STATIC_OVERRIDES=kubelet \
-  make --quiet kube-proxy kubelet && \
+  make --quiet kube-proxy kubelet kubeadm && \
   mkdir /out && cp _output/bin/kube* /out
 
 #### netpol (netpol-build)
@@ -184,24 +181,25 @@ COPY --from=netpol-build /out/* /
 COPY --from=etcd-build /out/* /
 COPY --from=cfssl-build /out/* /
 
-#### Test (test-main)
-FROM docker.io/ubuntu:${UBUNTU_RELEASE} AS test-main
-ADD https://raw.githubusercontent.com/AkihiroSuda/containerized-systemd/6ced78a9df65c13399ef1ce41c0bedc194d7cff6/docker-entrypoint.sh /docker-entrypoint.sh
+#### Main
+FROM quay.io/flysangel/jrei/systemd-ubuntu:${UBUNTU_RELEASE} AS main
 COPY hack/etc_systemd_system_user@.service.d_delegate.conf /etc/systemd/system/user@.service.d/delegate.conf
-RUN chmod +x /docker-entrypoint.sh && \
-  apt-get update -y && \
+RUN apt-get update -y && \
   apt-get install -q -y conntrack fuse3 git iptables nftables time which \
-  systemd-container && \
+    systemd-container \
+    curl iproute2 net-tools jq lxc uuid-runtime && \
   userdel ubuntu && \
-  useradd --create-home --home-dir /home/user --uid 1000 -G systemd-journal user && \
-  mkdir -p /home/user/.local /home/user/.config/usernetes && \
-  chown -R user:user /home/user && \
-  rm -rf /tmp/*
-COPY --chown=user:user . /home/user/usernetes
-COPY --from=bin-main --chown=user:user / /home/user/usernetes/bin
-RUN ln -sf /home/user/usernetes/boot/docker-unsudo.sh /usr/local/bin/unsudo
-VOLUME /home/user/.local
-VOLUME /home/user/.config
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
-  CMD ["unsudo", "systemctl", "--user", "is-system-running"]
-ENTRYPOINT ["/docker-entrypoint.sh", "unsudo", "/home/user/usernetes/boot/docker-2ndboot.sh"]
+  useradd -m -d /opt/usernetes -u 1000 -G systemd-journal -G adm -G root -c Usernetes -s /bin/bash usernetes && \
+  install -d -m 755 -o usernetes -g usernetes /opt/usernetes/.local /opt/usernetes/.config /opt/usernetes/.config/usernetes && \
+  rm -rf /tmp/* && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* && \
+  mkdir -p /var/lib/systemd/linger && \
+  touch /var/lib/systemd/linger/usernetes && \
+  ln -s /usr/lib/systemd/system/systemd-logind.service /usr/lib/systemd/system/multi-user.target.wants/systemd-logind.service && \
+  printf "%s\t%s\t%s\t%s\n" 'usernetes' 'veth' 'lxcbr0' '1' > /etc/lxc/lxc-usernet
+COPY --chown=usernetes:usernetes . /opt/usernetes
+COPY --from=bin-main --chown=usernetes:usernetes / /opt/usernetes/bin
+RUN su -c "/opt/usernetes/install.sh --install-only" - usernetes
+ENTRYPOINT ["/lib/systemd/systemd"]
+CMD ["--system", "--unit=multi-user.target"]

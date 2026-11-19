@@ -64,6 +64,8 @@ mkdir -p $dir
 master_d="${dir}/master"
 mkdir -p ${master_d}
 
+mkdir "${master_d}/.lock" || exit 0
+
 if [ -z "$master" ]; then
 	log::error "No masterwas specified"
 	exit 1

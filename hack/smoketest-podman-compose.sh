@@ -12,23 +12,23 @@ trap cleanup EXIT
 INFO "Creating the cluster"
 make _up
 master="usernetes_master_1"
-nodes="2"
+nodes="3"
 
-export KUBECONFIG="$HOME/.config/usernetes/docker-compose.kubeconfig"
-docker cp $master:/home/user/usernetes/bin/kubectl $tmpdir/kubectl
+export KUBECONFIG="$HOME/.config/usernetes/admin.kubeconfig"
+podman cp $master:/opt/usernetes/bin/kubectl $tmpdir/kubectl
 chmod +x $tmpdir/kubectl
 export PATH=$tmpdir:$PATH
 
 INFO "Waiting for master ($master) to be ready."
-if ! timeout 60 sh -exc "until [ \$(docker inspect -f '{{.State.Health.Status}}' $master) = \"healthy\" ]; do sleep 10; done"; then
-	ERROR "Master is unhealthy."
+if ! timeout -s INT -k 10 60 sh -exc "until [ \$(podman inspect -f '{{.State.Running}}' $master) = \"true\" ]; do sleep 10; done"; then
+	ERROR "Master is not running."
 	set -x
-	docker logs $master
+	podman logs $master
 	exit 1
 fi
 
 INFO "Waiting for $nodes nodes to be ready."
-if ! timeout 120 sh -exc "until [ \$(kubectl get nodes | grep \"Ready\" | grep -v \"NotReady\" | wc -l) = \"$nodes\" ]; do sleep 10; done"; then
+if ! timeout -s TERM -k 10 120 sh -exc "until [ \$(kubectl get nodes | grep \"Ready\" | grep -v \"NotReady\" | wc -l) = \"$nodes\" ]; do sleep 10; done"; then
 	ERROR "Nodes are not ready."
 	set -x
 	kubectl get nodes -o wide
@@ -42,7 +42,7 @@ image="nginx:alpine"
 INFO "Creating $app app"
 kubectl create deployment $app --image=$image
 kubectl scale deployment --replicas=$nodes $app
-if ! timeout 60 sh -exc "until [ \$(kubectl get pods -o json -l app=$app | jq -r \".items[].status.phase\" | grep -x \"Running\" | wc -l) = \"$nodes\" ]; do sleep 10; done"; then
+if ! timeout -s TERM -k 10 60 sh -exc "until [ \$(kubectl get pods -o json -l app=$app | jq -r \".items[].status.phase\" | grep -x \"Running\" | wc -l) = \"$nodes\" ]; do sleep 10; done"; then
 	ERROR "Pods are not running."
 	set -x
 	kubectl get pods -o wide -l app=$app
@@ -62,7 +62,7 @@ fi
 
 INFO "Creating the shell pod."
 kubectl run --restart=Never --image=alpine shell sleep infinity
-if ! timeout 60 sh -exc 'until kubectl get pods -o json shell | jq -r ".status.phase" | grep -x "Running" ;do sleep 10; done'; then
+if ! timeout -s TERM -k 10 60 sh -exc 'until kubectl get pods -o json shell | jq -r ".status.phase" | grep -x "Running" ;do sleep 10; done'; then
 	ERROR "The shell pod is not running."
 	set -x
 	kubectl get pods -o wide shell

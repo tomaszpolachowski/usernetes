@@ -1,6 +1,7 @@
 #!/bin/bash
 export U7S_BASE_DIR=$(realpath $(dirname $0)/..)
 source $U7S_BASE_DIR/common/common.inc.sh
+source $XDG_CONFIG_HOME/usernetes/etcd/env || true
 
 exec etcd \
 	--data-dir $XDG_DATA_HOME/usernetes/etcd \

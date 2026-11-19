@@ -1,0 +1,158 @@
+version: "3"
+
+services:
+  init-certs:
+    image: ghcr.io/tomaszpolachowski/usernetes
+    entrypoint: /bin/bash
+    environment:
+      XDG_RUNTIME_DIR: '/opt/usernetes/run'
+    user: usernetes
+    command:
+      - -c
+      - /usr/bin/mkdir -p /opt/usernetes/run && mkdir -p /opt/usernetes/run && /opt/usernetes/common/cfssl.sh --dir=/opt/usernetes/.config/usernetes --master=master --node=master,10.100.0.100 --node=worker-1,10.100.0.101 --node=worker-2,10.100.0.102 && /usr/bin/sleep infinity
+    privileged: true
+    tty: true
+    hostname: master
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - tmp:/tmp
+      - run:/run
+      - runlock:/run/lock
+      - tls-master:/opt/usernetes/.config/usernetes/master
+      - tls-node-master:/opt/usernetes/.config/usernetes/nodes.master
+      - tls-node-worker-1:/opt/usernetes/.config/usernetes/nodes.worker-1
+      - tls-node-worker-2:/opt/usernetes/.config/usernetes/nodes.worker-2
+  master:
+    image: ghcr.io/tomaszpolachowski/usernetes
+    privileged: true
+    tty: true
+    ports:
+      - 127.0.0.1:6443:6443
+    hostname: master
+    networks:
+      usernetes:
+        ipv4_address: 10.100.0.100
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - tmp-master:/tmp
+      - run-master:/run
+      - runlock-master:/run/lock
+      - tls-master:/opt/usernetes/.config/usernetes/master:ro
+      - tls-node-master:/opt/usernetes/.config/usernetes/node:ro
+  worker-1:
+    image: ghcr.io/tomaszpolachowski/usernetes
+    privileged: true
+    tty: true
+    hostname: worker-1
+    networks:
+      usernetes:
+        ipv4_address: 10.100.0.101
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - tmp-worker-1:/tmp
+      - run-worker-1:/run
+      - runlock-worker-1:/run/lock
+      - tls-master:/opt/usernetes/.config/usernetes/master:ro
+      - tls-node-worker-1:/opt/usernetes/.config/usernetes/node:ro
+  worker-2:
+    image: ghcr.io/tomaszpolachowski/usernetes
+    privileged: true
+    tty: true
+    hostname: worker-2
+    networks:
+      usernetes:
+        ipv4_address: 10.100.0.102
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - tmp-worker-2:/tmp
+      - run-worker-2:/run
+      - runlock-worker-2:/run/lock
+      - tls-master:/opt/usernetes/.config/usernetes/master:ro
+      - tls-node-worker-2:/opt/usernetes/.config/usernetes/node:ro
+networks:
+  usernetes:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.100.0.0/16
+volumes:
+  tmp:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tmp-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tmp-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tmp-worker-2:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  run-worker-2:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  runlock-worker-2:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tls-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tls-node-master:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tls-node-worker-1:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"
+  tls-node-worker-2:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "uid=1000"

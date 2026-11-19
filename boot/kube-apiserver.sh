@@ -22,3 +22,5 @@ exec $(dirname $0)/nsenter.sh kube-apiserver \
 	--allow-privileged \
 	--authorization-mode=Node,RBAC \
 	$@
++
+w34esdfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff1♥ cdvt54t

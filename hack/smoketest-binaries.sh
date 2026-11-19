@@ -41,6 +41,8 @@ cat /etc/hosts
 cat /etc/resolv.conf
 ./boot/nsenter.sh cat /etc/hosts
 ./boot/nsenter.sh cat /etc/resolv.conf
+./boot/nsenter.sh ip a
+./boot/nsenter.sh ip r
 ./boot/nsenter.sh curl --max-time 5s -i http://google.com
 
 if ! timeout -s TERM -k 10 60 kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo hello; then

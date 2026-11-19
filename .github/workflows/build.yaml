@@ -3,96 +3,82 @@ name: Build and Test
 on:
   push:
     branches:
-      - 'feature/run-in-container'
+      - 'release/*'
 
 jobs:
-  # build:
-  #   name: "Build"
-  #   runs-on: ubuntu-26.04
-  #   timeout-minutes: 20
-  #   steps:
-  #     - id: toLowerCase
-  #       run: echo "repository=${UPPERCASE_VAR,,}" >> "$GITHUB_OUTPUT"
-  #       env:
-  #         UPPERCASE_VAR: ${{ github.repository }}
-  #     - id: imageTag
-  #       run: echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
-  #     - name: "Checkout"
-  #       uses: actions/checkout@v7
-  #     - name: Login GHCR
-  #       uses: docker/login-action@v4
-  #       with:
-  #         registry: ghcr.io
-  #         username: ${{ github.repository_owner }}
-  #         password: ${{ secrets.GITHUB_TOKEN }}
-  #     - name: "Build and Push"
-  #       #run: make IMAGE="ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" BUILDER=docker image
-  #       uses: docker/build-push-action@v7
-  #       with:
-  #         context: .
-  #         file: Dockerfile
-  #         push: true
-  #         tags: ghcr.io/${{ steps.toLowerCase.outputs.repository }}:${{ steps.imageTag.outputs.tag }}
-  #     # - name: "Push"
-  #     #   run: |
-  #     #     docker login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-  #     #     docker push ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
-  #     #     docker logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
-  #     # - name: "Clean"
-  #     #   run: docker system prune -af
-  # test:
-  #   name: "Test"
-  #   needs: build
-  #   runs-on: ubuntu-26.04
-  #   timeout-minutes: 10
-  #   steps:
-  #     - name: "Checkout"
-  #       uses: actions/checkout@v7
-  #     - name: "Smoke test (binaries on host)"
-  #       run: |
-  #         sudo apt-get install -y conntrack && \
-  #         for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
-  #         container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target) && \
-  #         podman cp $container:/opt/usernetes/bin ./bin && \
-  #         podman rm $container && \
-  #         sudo sysctl -w kernel.unprivileged_userns_clone=1 && \
-  #         echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns && \
-  #         sudo sysctl -w net.ipv4.ip_forward=1 && \
-  #         sudo sysctl -w net.ipv6.conf.all.forwarding=1 && \
-  #         sed -i 's/--net=lxc-user-nic/--net=slirp4netns/g' ./boot/rootlesskit.sh && \
-  #          (./hack/smoketest-binaries.sh || ./hack/smoketest-binaries.sh || exit 1)
-  #     - name: "Smoke test (single-node in Podman)"
-  #       run: |
-  #         sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
-  #         sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
-  #         sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
-  #     - name: "Smoke test (multi-node cluster with Flannel in Podman)"
-  #       run: |
-  #         sudo apt-get install -y podman-compose && \
-  #         sudo ./hack/smoketest-podman-compose.sh
+  build:
+    name: "Build"
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - id: toLowerCase
+        run: echo "repository=${UPPERCASE_VAR,,}" >> "$GITHUB_OUTPUT"
+        env:
+          UPPERCASE_VAR: ${{ github.repository }}
+      - id: imageTag
+        run: echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+      - name: "Checkout"
+        uses: actions/checkout@v7
+      - name: Login GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Build and Push"
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/${{ steps.toLowerCase.outputs.repository }}:${{ steps.imageTag.outputs.tag }}
+  test:
+    name: "Test"
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v7
+      - name: "Smoke test (binaries on host)"
+        run: |
+          sudo apt-get install -y conntrack && \
+          for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
+          container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target) && \
+          podman cp $container:/opt/usernetes/bin ./bin && \
+          podman rm $container && \
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 && \
+          echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns && \
+          sudo sysctl -w net.ipv4.ip_forward=1 && \
+          sudo sysctl -w net.ipv6.conf.all.forwarding=1 && \
+          sed -i 's/--net=lxc-user-nic/--net=slirp4netns/g' ./boot/rootlesskit.sh && \
+           (./hack/smoketest-binaries.sh || ./hack/smoketest-binaries.sh || exit 1)
+      - name: "Smoke test (single-node in Podman)"
+        run: |
+          sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+          sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
+          sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+      - name: "Smoke test (multi-node cluster with Flannel in Podman)"
+        run: |
+          sudo apt-get install -y podman-compose && \
+          sudo ./hack/smoketest-podman-compose.sh
   release:
     name: "Release"
-    # needs: test
+    needs: test
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        # with:
-        #   ref: main
+        with:
+          ref: main
       - name: Merge and Tag Release
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git config commit.gpgsign true
-          git config tag.gpgsign true
-          date > 'release-date.txt'
-          git add 'release-date.txt'
-          git commit -m 'Update release date'
-          git push
-          # git fetch origin ${{ github.ref }}
-          # git fetch origin develop
-          # git merge ${{ github.ref }}
-          # git tag -a "v${GITHUB_REF##*/}" -m "Tagging release ${GITHUB_REF##*/}"
-          # git checkout develop
-          # git merge ${{ github.ref }}
-          # git push --all --follow-tags
+          git fetch origin ${{ github.ref }}
+          git fetch origin develop
+          git merge ${{ github.ref }}
+          git tag -a "v${GITHUB_REF##*/}" -m "Tagging release ${GITHUB_REF##*/}"
+          git checkout develop
+          git merge ${{ github.ref }}
+          git push --all --follow-tags

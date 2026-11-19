@@ -45,6 +45,7 @@ cat /etc/resolv.conf
 ./boot/nsenter.sh ip r
 curl --max-time 5s -i http://google.com
 nslookup google.com
+./boot/nsenter.sh nslookup google.com
 ./boot/nsenter.sh curl --max-time 5s -i http://google.com
 
 if ! timeout -s TERM -k 10 60 kubectl run --attach=true --rm --image busybox --restart=Never hello -- echo hello; then

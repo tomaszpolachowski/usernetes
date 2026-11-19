@@ -1,6 +1,3 @@
-# this dockerfile can be translated to `docker/dockerfile:1-experimental` syntax for enabling cache mounts:
-# $ ./hack/translate-dockerfile-runopt-directive.sh < Dockerfile  | DOCKER_BUILDKIT=1 docker build  -f -  .
-
 ### Version definitions
 # use ./hack/show-latest-releases.sh to get the latest releases
 

@@ -11,10 +11,10 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v7
         with:
-          ref: develop
+          ref: main
+          ssh-key: ${{ secrets.GITHUBKEY }}
       - name: "Check for Updates"
         run: |
-          sudo apt-get install -y jq python3-packaging
           ./update-Dockerfile.sh
           if [[ -z "$(git diff Dockerfile)" ]]; then exit 0; fi
           branch="release/$(date +%Y%m%d).0"

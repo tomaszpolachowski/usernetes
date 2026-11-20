@@ -10,10 +10,37 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
+      - id: image
+        run: echo "image=ghcr.io/${UPPERCASE_VAR,,}:${GITHUB_REF##*v}" >> "$GITHUB_OUTPUT"
+        env:
+          UPPERCASE_VAR: ${{ github.repository }}
       - name: "Checkout"
         uses: actions/checkout@v7
-      - name: "Build"
-        run: make artifact
+      - id: pull
+        name: "Pull"
+        run: |
+          if docker pull ${{ steps.image.outputs.image }} > /dev/null 2>&1; then
+            echo "exists=1";
+          else
+            echo "exists=0";
+          fi >> "$GITHUB_OUTPUT"
+      - name: Login GHCR
+        if: ${{ steps.pull.outputs.exists == '0' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Build and Push"
+        if: ${{ steps.pull.outputs.exists == '0' }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.image }}
+      - name: "Extract"
+        run: make IMAGE="${{ steps.image.outputs.image }}" BUILDER=docker _binaries _artifact
       - name: "Create release"
         uses: softprops/action-gh-release@v3
         with:
@@ -21,7 +48,7 @@ jobs:
           files: |
             usernetes-x86_64.tbz
             SHA256SUMS
-          draft: true
+          draft: false
           preserve_order: true
       - name: "Upload SHA256SUMS (artifact)"
         uses: actions/upload-artifact@v7

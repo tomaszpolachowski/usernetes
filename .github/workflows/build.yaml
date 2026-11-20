@@ -20,7 +20,6 @@ jobs:
       - name: "Checkout"
         uses: actions/checkout@v7
         with:
-          repository: "git@github.com"
           token: ""
           ssh-key: ${{ secrets.GITHUBKEY }}
       - name: Login GHCR

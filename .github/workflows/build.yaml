@@ -3,7 +3,7 @@ name: Build and Test
 on:
   push:
     branches:
-      - 'release/**'
+      - 'autoupdate/**'
 
 jobs:
   build:
@@ -72,14 +72,14 @@ jobs:
         with:
           ref: main
           token: ${{ secrets.GITHUBTOKEN }}
-      - name: Merge and Tag Release
+      - name: Merge and Tag
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch origin release/${GITHUB_REF##*/}:release/${GITHUB_REF##*/}
+          git fetch origin autoupdate/${GITHUB_REF##*/}:autoupdate/${GITHUB_REF##*/}
           git fetch origin develop:develop
-          git merge release/${GITHUB_REF##*/}
-          git tag -a "v${GITHUB_REF##*/}" -m "Tagging release ${GITHUB_REF##*/}"
+          git merge autoupdate/${GITHUB_REF##*/}
+          git tag -a "v${GITHUB_REF##*/}" -m "Tagging autoupdate ${GITHUB_REF##*/}"
           git checkout develop
-          git merge release/${GITHUB_REF##*/}
+          git merge autoupdate/${GITHUB_REF##*/}
           git push --all --follow-tags

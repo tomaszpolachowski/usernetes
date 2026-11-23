@@ -6,16 +6,14 @@ on:
 env:
   DOCKER_BUILDKIT: 1
 jobs:
-  release:
+  build:
     runs-on: ubuntu-26.04
-    timeout-minutes: 40
+    timeout-minutes: 20
     steps:
       - id: image
         run: echo "image=ghcr.io/${UPPERCASE_VAR,,}:${GITHUB_REF##*v}" >> "$GITHUB_OUTPUT"
         env:
           UPPERCASE_VAR: ${{ github.repository }}
-      - name: "Checkout"
-        uses: actions/checkout@v7
       - id: pull
         name: "Pull"
         run: |
@@ -24,6 +22,9 @@ jobs:
           else
             echo "exists=0";
           fi >> "$GITHUB_OUTPUT"
+      - name: "Checkout"
+        if: ${{ steps.pull.outputs.exists == '0' }}
+        uses: actions/checkout@v7
       - name: Login GHCR
         if: ${{ steps.pull.outputs.exists == '0' }}
         uses: docker/login-action@v4
@@ -39,6 +40,46 @@ jobs:
           file: Dockerfile
           push: true
           tags: ${{ steps.image.outputs.image }}
+  test:
+    needs: build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v7
+      - name: "Smoke test (binaries on host)"
+        run: |
+          sudo apt-get install -y conntrack && \
+          for M in $(cat ./config/modules-load.d/u7s.conf); do sudo modprobe $M; done && \
+          container=$(podman create --rm --privileged --entrypoint /lib/systemd/systemd --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest --system --unit=multi-user.target) && \
+          podman cp $container:/opt/usernetes/bin ./bin && \
+          podman rm $container && \
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 && \
+          echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns && \
+          sudo sysctl -w net.ipv4.ip_forward=1 && \
+          sudo sysctl -w net.ipv6.conf.all.forwarding=1 && \
+          sed -i 's/--net=lxc-user-nic/--net=slirp4netns/g' ./boot/rootlesskit.sh && \
+           (./hack/smoketest-binaries.sh || ./hack/smoketest-binaries.sh || exit 1)
+      - name: "Smoke test (single-node in Podman)"
+        run: |
+          sudo podman login ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]') -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+          sudo ./hack/smoketest-podman.sh u7s-test-crio ghcr.io/$(echo -n ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest && \
+          sudo podman logout ghcr.io/$(echo -n ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+      - name: "Smoke test (multi-node cluster with Flannel in Podman)"
+        run: |
+          sudo apt-get install -y podman-compose && \
+          sudo ./hack/smoketest-podman-compose.sh
+  release:
+    needs: test
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - id: image
+        run: echo "image=ghcr.io/${UPPERCASE_VAR,,}:${GITHUB_REF##*v}" >> "$GITHUB_OUTPUT"
+        env:
+          UPPERCASE_VAR: ${{ github.repository }}
+      - name: "Checkout"
+        uses: actions/checkout@v7
       - name: "Extract"
         run: make IMAGE="${{ steps.image.outputs.image }}" BUILDER=docker _binaries _artifact
       - name: "Create release"

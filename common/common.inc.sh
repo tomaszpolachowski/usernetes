@@ -89,6 +89,37 @@ function nsenter::_nsenter() {
 	nsenter --user --preserve-credential --mount --net --cgroup --pid --ipc --uts -t $(cat $pidfile) --wd=$PWD -- $@
 }
 
+# kubeapi utilities
+function kubeapi::api_ready() {
+	local PROBES=30
+	while [[ PROBES -gt 0 ]] && ! kubectl --request-timeout='3s' get --raw='/readyz'; do
+		sleep 1
+		PROBES=$((PROBES-1))
+	done
+
+	if [[ PROBES -le 0 ]]; then
+		log::error "Kubernetes API is not ready"
+		return 1
+	fi
+
+	return 0
+}
+
+function kubeapi::node_ready() {
+	local PROBES=30
+	while [[ PROBES -gt 0 ]] && [[ -z "$(kubectl --request-timeout='3s' get node $@ -o jsonpath='{.spec.podCIDR}')" ]]; do
+		sleep 1
+		PROBES=$((PROBES-1))
+	done
+
+	if [[ PROBES -le 0 ]]; then
+		log::error "Node is not ready"
+		return 1
+	fi
+
+	return 0
+}
+
 # entrypoint begins
 if debug::enabled; then
 	log::warning "Running in debug mode (\$U7S_DEBUG)"

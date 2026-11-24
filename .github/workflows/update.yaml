@@ -2,7 +2,7 @@ name: Check for Updates
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight
+    - cron: '21 21 * * *'
 
 jobs:
   check-for-updates:
@@ -17,10 +17,18 @@ jobs:
         run: |
           ./update-Dockerfile.sh
           if [[ -z "$(git diff Dockerfile)" ]]; then exit 0; fi
-          branch="autoupdate/$(date +%Y%m%d).0"
+          git fetch --tags --prune origin
+          TODAY="$(date +%Y%m%d)"
+          LAST="$(git tag --list "v$TODAY.*" --sort=-v:refname | head -n 1)"
+          if [[ -n "$LAST" ]]; then
+            BRANCH="autoupdate/$TODAY.$(( ${LAST##*.} + 1 ))"
+          fi
+          if [[ -z "$BRANCH" ]]; then
+            BRANCH="autoupdate/$TODAY.0"
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -b "$branch"
+          git checkout -b "$BRANCH"
           git add Dockerfile
           git commit -m 'Update Dockerfile'
-          git push --set-upstream origin "$branch"
+          git push --set-upstream origin "$BRANCH"

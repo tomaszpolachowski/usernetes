@@ -197,14 +197,15 @@ fi
 
 ### Create EnvironmentFile (~/.config/usernetes/env)
 mkdir -p ${config_dir}/usernetes
-cat /dev/null >${config_dir}/usernetes/env
-cat <<EOF >>${config_dir}/usernetes/env
+if [[ ! -f ${config_dir}/usernetes/env ]]; then
+	cat <<EOF >${config_dir}/usernetes/env
 U7S_ROOTLESSKIT_PORTS=${publish}
 EOF
-if [ "$cni" = "flannel" ]; then
-	cat <<EOF >>${config_dir}/usernetes/env
+	if [ "$cni" = "flannel" ]; then
+		cat <<EOF >>${config_dir}/usernetes/env
 U7S_FLANNEL=1
 EOF
+	fi
 fi
 
 # if [ -n "$cidr" ]; then

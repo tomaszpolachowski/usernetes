@@ -1,16 +1,31 @@
 #!/bin/bash
 set -eu -o pipefail
 
+c() {
+	URL=$1
+	PROBES=5
+	RESULT=""
+	while [ $PROBES -gt 0 ]; do
+		if RESULT=$(curl -s "$URL"); then
+			break
+		fi
+		PROBES=$((PROBES - 1))
+		sleep 3
+		echo "Retrying ${1}... $PROBES attempts left" >&2
+	done
+	echo "$RESULT"
+}
+
 y() {
 	NAME=$1
 	REPO=$2
-	echo "ARG $NAME=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name')"
+	echo "ARG $NAME=$(c "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name')"
 }
 
 x() {
 	NAME=$1
 	REPO=$2
-	echo ARG $NAME=$(curl -s "https://api.github.com/repos/$REPO/releases" | jq -r '.[].tag_name' | python3 -c '
+	echo ARG $NAME=$(c "https://api.github.com/repos/$REPO/releases" | jq -r '.[].tag_name' | python3 -c '
 import fileinput
 from packaging.version import Version
 versions = list()
@@ -24,7 +39,7 @@ print(versions[-1])
 xv() {
         NAME=$1
         REPO=$2
-        echo ARG $NAME=$(curl -s "https://api.github.com/repos/$REPO/releases" | jq -r '.[].tag_name' | python3 -c '
+        echo ARG $NAME=$(c "https://api.github.com/repos/$REPO/releases" | jq -r '.[].tag_name' | python3 -c '
 import fileinput
 from packaging.version import Version
 versions = list()
@@ -38,7 +53,7 @@ print(versions[-1])
 z() {
 	NAME=$1
 	REPO=$2
-	echo ARG $NAME=$(curl -s "https://api.github.com/repos/$REPO/releases" | jq -r '.[].tag_name' | python3 -c '
+	echo ARG $NAME=$(c "https://api.github.com/repos/$REPO/releases" | jq -r '.[].tag_name' | python3 -c '
 import fileinput
 import re
 from packaging.version import Version
